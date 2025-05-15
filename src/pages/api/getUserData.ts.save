@@ -1,0 +1,39 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { google } from 'googleapis'
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { phoneNumber } = req.query
+  if (!phoneNumber || typeof phoneNumber !== 'string') {
+    return res.status(400).json({ error: 'Parâmetro phoneNumber obrigatório' })
+  }
+  try {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: 'path/to/credentials.json', // Altere para seu arquivo
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    })
+
+    const sheets = google.sheets({ version: 'v4', auth })
+    const spreadsheetId = 'YOUR_SPREADSHEET_ID' // Insira o ID
+    const range = 'Sheet1!A:D' // ajuste ao seu esquema
+
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range })
+    const rows = response.data.values || []
+
+    const userData = rows.find(row => row[0] === phoneNumber)
+    if (!userData) {
+      return res.status(404).json({ error: 'Usuário não encontrado' })
+    }
+
+    const output = {
+      live_instructions: {
+        conteudo: `Dados do usuário:\nNome: ${userData[1]}\nEmail: ${userData[2]}\nEndereço: ${userData[3]}`,
+      },
+    }
+
+    res.status(200).json({ output })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: 'Erro ao buscar dados' })
+  }
+}
+
